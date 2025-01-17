@@ -1,31 +1,36 @@
 import asyncio
 
-HOST = 'localhost'
-PORT = 9095
+async def handle_client(reader, writer):
+    address = writer.get_extra_info('peername')
+    print(f"Клиент подключился: {address}")
 
+    try:
+        while True:
+            data = await reader.read(1024)
+            if not data:
+                print(f"Клиент отключился: {address}")
+                break
 
-async def handle_echo(reader, writer):
-    data = await reader.read(100)
-    message = data.decode()
+            message = data.decode('utf-8').strip()
+            print(f"Получено от клиента: {message}")
+            writer.write(data)
+            await writer.drain()
+            print(f"Отправлено клиенту: {message}")
+    except Exception as e:
+        print(f"Ошибка с клиентом {address}: {e}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
-    writer.write(data)
-    await writer.drain()
+async def start_server(host='127.0.0.1', port=65432):
+    server = await asyncio.start_server(handle_client, host, port)
+    print(f"Сервер запущен на {host}:{port}")
 
-    writer.close()
+    async with server:
+        await server.serve_forever()
 
-
-loop = asyncio.get_event_loop()
-coro = asyncio.start_server(handle_echo, HOST, PORT, loop=loop)
-server = loop.run_until_complete(coro)
-
-# Serve requests until Ctrl+C is pressed
-print('Serving on {}'.format(server.sockets[0].getsockname()))
-try:
-    loop.run_forever()
-except KeyboardInterrupt:
-    pass
-
-# Close the server
-server.close()
-loop.run_until_complete(server.wait_closed())
-loop.close()
+if __name__ == "__main__":
+    try:
+        asyncio.run(start_server())
+    except KeyboardInterrupt:
+        print("\nСервер остановлен.")

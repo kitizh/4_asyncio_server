@@ -1,23 +1,28 @@
 import asyncio
 
-
-HOST = 'localhost'
-PORT = 9095
-
-
-async def tcp_echo_client(host, port):
+async def start_client(host='127.0.0.1', port=65432):
     reader, writer = await asyncio.open_connection(host, port)
-    message = 'Hello, world'
+    print(f"Соединение с сервером {host}:{port} установлено.")
 
-    writer.write(message.encode())
-    await writer.drain()
+    try:
+        while True:
+            message = input("Введите сообщение (или 'exit' для выхода): ")
+            writer.write(message.encode('utf-8'))
+            await writer.drain()
+            print(f"Отправлено серверу: {message}")
 
-    data = await reader.read(100)
-    writer.close()
-    # await writer.wait_closed()
+            if message.lower() == 'exit':
+                print("Разрыв соединения с сервером...")
+                break
 
-# asyncio.run(tcp_echo_client(HOST, PORT))
+            data = await reader.read(1024)
+            print(f"Ответ от сервера: {data.decode('utf-8')}")
+    except KeyboardInterrupt:
+        print("\nПринудительный разрыв соединения.")
+    finally:
+        writer.close()
+        await writer.wait_closed()
+        print("Клиент завершил работу.")
 
-loop = asyncio.get_event_loop()
-task = loop.create_task(tcp_echo_client(HOST, PORT))
-loop.run_until_complete(task)
+if __name__ == "__main__":
+    asyncio.run(start_client())
